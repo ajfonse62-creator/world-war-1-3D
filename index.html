@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>ULTRAKILL 1918</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#120505;overflow:hidden;font:bold 11px monospace;color:#fff;user-select:none;cursor:crosshair}
+#c{width:100vw;height:100vh;image-rendering:pixelated;display:block}
+#ui{position:fixed;inset:0;pointer-events:none;display:flex;flex-direction:column;justify-content:space-between;padding:5px}
+.top,.box{display:flex;gap:4px;align-items:center;flex-wrap:wrap}
+.top{justify-content:space-between}
+.box{background:#140404e6;border:2px solid #f22;padding:3px 6px;pointer-events:auto}
+select,button,input{background:#240808;border:1px solid #f22;color:#fff;padding:2px 4px;font:inherit}
+button{background:#800;cursor:pointer}
+#bar{width:100%;max-width:480px;height:16px;background:#800;border:2px solid #fff;margin:3px auto 0;position:relative}
+#bf{height:100%;width:50%;background:#15b}
+#bt{position:absolute;inset:0;display:flex;justify-content:space-between;padding:0 5px}
+#ev{align-self:center;background:#820a0ae6;border:1px solid #fe0;padding:2px 8px;color:#fe0;margin-top:3px}
+#ms{align-self:center;background:#0a230fe6;border:1px solid #0f6;padding:2px 8px;color:#0f6;margin-top:3px}
+#trSt{align-self:center;background:#1a110be6;border:1px solid #fa0;padding:2px 8px;color:#fa0;margin-top:3px;display:none}
+#rk{position:fixed;right:8px;top:80px;text-align:right;font-size:16px;color:#fa0}
+#dmg{position:fixed;inset:0;background:#ff000073;pointer-events:none;opacity:0;transition:.1s}
+#xh{position:fixed;left:50%;top:50%;width:12px;height:12px;margin:-6px;border:2px solid #0f6;pointer-events:none}
+#chat{position:fixed;left:5px;bottom:5px;width:340px;max-width:48vw;background:#0c0404e6;border:2px solid #f22;padding:4px;pointer-events:auto}
+#clog{height:95px;overflow-y:auto;margin-bottom:3px;line-height:1.3}
+#cin{width:100%;outline:none;border-color:#fe0}
+.md{position:fixed;inset:0;background:#000e;display:none;flex-direction:column;justify-content:center;align-items:center;z-index:9;text-align:center}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="dmg"></div>
+<div id="xh"></div>
+<div id="ui">
+  <div>
+    <div class="top">
+      <div class="box">
+        <button id="sb" onclick="uA();au=!au;this.innerText=au?'🔊':'🔇'">🔊</button>
+        <canvas id="fp" width="36" height="20"></canvas>
+        <select id="cs" onchange="setC()">
+          <option value="ru">Россия</option><option value="fr">Франция</option><option value="uk">Британия</option>
+          <option value="us">США</option><option value="it">Италия</option><option value="rs">Сербия</option>
+          <option value="de">Германия</option><option value="ah">Австро-Венгрия</option><option value="tr">Турция</option><option value="bg">Болгария</option>
+        </select>
+        <select id="chs" onchange="setCh(1)">
+          <option value="1">1914</option><option value="2">1915</option><option value="3">1916</option><option value="4">1917</option><option value="5">1918</option>
+        </select>
+        <select id="mos" onchange="mo=+this.value;setCh(0)">
+          <option value="1">Янв</option><option value="2">Фев</option><option value="3">Мар</option><option value="4">Апр</option>
+          <option value="5">Май</option><option value="6">Июн</option><option value="7">Июл</option><option value="8">Авг</option>
+          <option value="9">Сен</option><option value="10">Окт</option><option value="11">Ноя</option><option value="12">Дек</option>
+        </select>
+        <select id="dfs" onchange="df=+this.value;spw()">
+          <option value="1">ИЗИ</option><option value="2">СРЕД</option><option value="3">БЕЗУМ</option><option value="4">OMEGA</option>
+        </select>
+      </div>
+      <div class="box">HP:<b id="hp">100</b>|H:<b id="hl">OK</b>|K:<b id="sc">0</b>|<b id="stN">1/60</b></div>
+    </div>
+    <div id="bar"><div id="bf"></div><div id="bt"><span>🔵<b id="bp">50</b>%</span><span id="ct"></span><span><b id="rp">50</b>%🔴</span></div></div>
+    <div id="ev"></div>
+    <div id="ms"></div>
+    <div id="trSt">ВЫ В ОКОПЕ (УКРЫТИЕ) • НАЖМИ ПРОБЕЛ ЧТОБЫ ВЫПРЫГНУТЬ</div>
+  </div>
+  <div id="rk">RANK:<span id="r">D</span><div style="font-size:9px;color:#ccc">WASD•ЛКМ:ОГОНЬ•ПРОБЕЛ:ПРЫЖОК•H:+HP•SHIFT:РЫВОК•T:ЧАТ</div></div>
+  <div id="chat"><div id="clog"></div><form onsubmit="sCh(event)" style="display:flex;gap:2px"><input id="cin" placeholder="Напиши Генералу (T)..."><button>▶</button></form></div>
+</div>
+<div id="win" class="md"><h1 id="wt" style="color:#fe0">ПОБЕДА!</h1><button onclick="nxt()">ДАЛЬШЕ ▶</button></div>
+<div id="dead" class="md"><h1 style="color:#f22">ВЫ ПОГИБЛИ!</h1><button onclick="dead=0;hp=100;pl.z=pl.tm=='blue'?-82:82;pl.y=0.6;G('dead').style.display='none'">В СТРОЙ ↺</button></div>
+<script>
+const G=i=>document.getElementById(i),cv=G('c'),g=cv.getContext('2d'),sp=new Map();
+let W=cv.width=Math.max(320,innerWidth/2|0),H=cv.height=Math.max(200,innerHeight/2|0);
+let ac,au=1,t=0,sc=0,hp=100,fr=.5,ch=1,mo=1,df=1,K={},pts=0,st=0,ls=performance.now(),dead=0,won=0;
+let ply=[],bts=[],bms=[],tks=[],pns=[],shs=[],bxs=[],aps=[];
+let pl={x:0,y:0.6,vy:0,z:-82,yaw:0,c:'ru',tm:'blue',rc:0,stm:3,dt:0,sl:0,hl:0,inTr:0},msn={tp:'k',c:0,r:5,d:''};
+
+function cln(m,cropBeam){
+  let f=document.createElement('canvas'),w=m.width||64,h=m.height||64;
+  f.width=w;f.height=h;let x=f.getContext('2d');x.drawImage(m,0,0);
+  try{
+    let id=x.getImageData(0,0,w,h),d=id.data,x0=w,y0=h,x1=0,y1=0;
+    for(let y=0;y<h;y++)for(let xx=0;xx<w;xx++){
+      let i=(y*w+xx)*4;
+      if(d[i]>235&&d[i+1]>235&&d[i+2]>235)d[i+3]=0;
+      else if(!cropBeam||xx<w*.6){if(xx<x0)x0=xx;if(xx>x1)x1=xx;if(y<y0)y0=y;if(y>y1)y1=y;}
+    }
+    x.putImageData(id,0,0);
+    if(x1>=x0&&y1>=y0){
+      let c=document.createElement('canvas');c.width=x1-x0+1;c.height=y1-y0+1;
+      c.getContext('2d').drawImage(f,x0,y0,c.width,c.height,0,0,c.width,c.height);return c;
+    }
+  }catch(e){}
+  return f;
+}
+['rifle','beam'].forEach(n=>{let m=new Image();m.onload=()=>sp.set(n,cln(m,n=='beam'));m.src=n+'.png'});
+
+const C={
+  ru:{n:'Россия',s:'blue',u:'#6b633c'},fr:{n:'Франция',s:'blue',u:'#496b8a'},uk:{n:'Британия',s:'blue',u:'#6e5f41'},
+  us:{n:'США',s:'blue',u:'#5e5b3e'},it:{n:'Италия',s:'blue',u:'#566658'},rs:{n:'Сербия',s:'blue',u:'#595849'},
+  de:{n:'Германия',s:'red',u:'#535e54'},ah:{n:'Австрия',s:'red',u:'#596873'},tr:{n:'Турция',s:'red',u:'#6e6249'},bg:{n:'Болгария',s:'red',u:'#615843'}
+};
+const MOS=['ЯНВ','ФЕВ','МАР','АПР','МАЙ','ИЮН','ИЮЛ','АВГ','СЕН','ОКТ','НОЯ','ДЕК'];
+const EV=[
+  ['ПОДГОТОВКА','КРИЗИС','МАНЁВРЫ','СТЫЧКИ','МОБИЛИЗАЦИЯ','САРАЕВО','УЛЬТИМАТУМ','БЕЛЬГИЯ','МАРНА','БЕГ К МОРЮ','ИПР','ПЕРЕМИРИЕ'],
+  ['ОКОПЫ','ШАМПАНЬ','ДАРДАНЕЛЛЫ','ГАЗ ИПР','ГОРЛИЦЕ','ГАЛЛИПОЛИ','ИЗОНЦО','ОСОВЕЦ','ОТСТУПЛЕНИЕ','ЛООС','СЕРБИЯ','ЗИМА 15'],
+  ['ВЕРДЕН','ДУОМОН','НАРОЧЬ','ЭЛЬ-КУТ','БРУСИЛОВ','ЮТЛАНДИЯ','СОММА','ФОРТ ВО','ТАНКИ MARK I','КОНТРУДАР','МОНАСТИР','ЗИМА 16'],
+  ['ГИНДЕНБУРГ','ФЕВРАЛЬ 17','БАГДАД','США•ВИМИ','МЕССИНА','НАСТУПЛЕНИЕ','ПАСХЕНДАЛЬ','РИГА','ЗАТИШЬЕ','КАПОРЕТТО','КАМБРЕ','ПЕРЕМИРИЕ'],
+  ['ПЕРЕГОВОРЫ','БОИ 18','МИХАЭЛЬ','ЛИС','ЛЕС БЕЛЛО','2-Я МАРНА','АМЬЕН','100 ДНЕЙ','СЕН-МИЕЛЬ','ЗИГФРИД','МЁЗ-АРГОНН','КОМПЬЕН']
+];
+const DF=[{d:100,ed:4,es:.22,s:3.5,n:16,c:3},{d:65,ed:9,es:.4,s:5,n:24,c:2},{d:45,ed:16,es:.6,s:6.8,n:34,c:1.3},{d:34,ed:26,es:.8,s:8.5,n:44,c:.75}];
+// Координаты глубоких окопов по оси Z
+const TR='-82,-50,-20,20,50,82'.split(',').map(Number);
+const gL='293,0,349,0,440,0,349,0,329,0,392,0,493,0,392,0,349,0,440,0,523,0,440,0,587,587,523,493,440,0,392,0,587,440,349,440,587,659,698,659,587,440,349,440,698,0,659,0,523,392,329,392,523,587,659,587,880,0,784,698,659,587,523,440'.split(',').map(Number);
+const gB='73,0,73,0,73,0,73,0,82,0,82,0,82,0,82,0,87,0,87,0,87,0,87,0,110,0,110,110,98,0,82,0,73,146,73,146,73,146,73,146,65,130,65,130,65,130,65,130,58,116,58,116,58,116,58,116,110,220,110,220,82,164,73,146'.split(',').map(Number);
+
+function uA(){if(!ac)ac=new(window.AudioContext||window.webkitAudioContext)();if(ac.state=='suspended')ac.resume();}
+function bp(tp,f1,f2,du,v){
+  if(!au)return;uA();
+  try{
+    let n=ac.currentTime,o=ac.createOscillator(),gn=ac.createGain();
+    o.type=tp;o.frequency.setValueAtTime(f1,n);o.frequency.exponentialRampToValueAtTime(Math.max(20,f2),n+du);
+    gn.gain.setValueAtTime(v,n);gn.gain.exponentialRampToValueAtTime(.001,n+du);
+    o.connect(gn);gn.connect(ac.destination);o.start(n);o.stop(n+du);
+  }catch(e){}
+}
+function ns(du,v,fq){
+  if(!au)return;uA();
+  try{
+    let sr=ac.sampleRate,ln=sr*du,b=ac.createBuffer(1,ln,sr),d=b.getChannelData(0);
+    for(let i=0;i<ln;i++)d[i]=(Math.random()*2-1)*Math.exp(-i/(ln*.35));
+    let s=ac.createBufferSource(),f=ac.createBiquadFilter(),gn=ac.createGain();
+    s.buffer=b;f.type='lowpass';f.frequency.value=fq;gn.gain.value=v;
+    s.connect(f);f.connect(gn);gn.connect(ac.destination);s.start();
+  }catch(e){}
+}
+setInterval(()=>{
+  if(!au||!ac||ac.state!='running')return;
+  let i=st%64,dr=i>=32,l=gL[i],b=gB[i];
+  if(l)bp(dr?'sawtooth':'square',l,l*.99,.1,dr?.06:.04);
+  if(b)bp('sawtooth',b,b*.55,.11,dr?.1:.07);
+  if(i%(dr?2:4)==0)bp('triangle',170,32,.09,dr?.14:.09);
+  if(i%4==2)ns(.07,dr?.11:.06,3000);
+  st++;
+},100);
+onresize=()=>{W=cv.width=Math.max(320,innerWidth/2|0);H=cv.height=Math.max(200,innerHeight/2|0)};
+onkeydown=e=>{
+  if(document.activeElement.id=='cin')return;uA();K[e.code]=1;if(dead||won)return;
+  if(e.code=='KeyF')sht();
+  if(e.code=='KeyH'&&pl.hl<=0&&hp<100){pl.hl=6;hp=Math.min(100,hp+50);bp('sine',440,880,.18,.12);msg('МЕДИК','+50HP!','#0f6')}
+  if(e.code=='KeyT'){e.preventDefault();G('cin').focus()}
+  if(e.code.includes('Shift')&&pl.stm>=1&&pl.dt<=0){pl.stm--;pl.dt=.22;bp('sawtooth',520,140,.15,.1)}
+  // Прыжок работает и с земли, и со дна глубокого окопа!
+  if(e.code=='Space'&&pl.vy==0){pl.vy=pl.inTr?19:15;bp('sine',180,440,.12,.09)}
+  if(e.code=='KeyC')pl.sl=1;
+};
+onkeyup=e=>{K[e.code]=0;if(e.code=='KeyC')pl.sl=0};
+onmousemove=e=>{if(!dead&&!won)pl.yaw=((e.clientX/innerWidth)-.5)*3.4+(pl.tm=='red'?Math.PI:0)};
+onmousedown=e=>{uA();if(e.target==cv&&!dead&&!won)sht()};
+
+function msg(w,x,c){let e=G('clog');e.innerHTML+=`<div><b style="color:${c||'#fe0'}">[${w}]:</b> ${x}</div>`;e.scrollTop=e.scrollHeight}
+
+// Умные ответы Генерала и союзников на любой вопрос
+function sCh(e){
+  e.preventDefault();let i=G('cin'),x=i.value.trim();i.value='';i.blur();if(!x)return;
+  let inf=C[pl.c],q=x.toLowerCase();msg('ВЫ',x,'#5cf');
+  setTimeout(()=>{
+    let r='',ally='';
+    if(q.includes('shift')||q.includes('рывок')||q.includes('управл')||q.includes('кнопк')||q.includes('как')){
+      r='Shift — это быстрый рывок с неуязвимостью от пуль! Пробел — выпрыгнуть из окопа, C — подкат, H — аптечка, ЛКМ — огонь!';
+      ally='Рядовой Орлов: Если зажмут — жми Shift в сторону и ныряй в окоп!';
+    }else if(q.includes('окоп')||q.includes('ям')||q.includes('выпрыг')||q.includes('прят')){
+      r='Окопы вырыты глубоко в земле: прыгай в них, чтобы укрыться от пуль и снарядов. Чтобы вылезти наверх — жми Пробел!';
+      ally='Сержант Волков: В окопе враг по нам почти не попадает, отличная позиция!';
+    }else if(q.includes('что дел')||q.includes('мисс')||q.includes('задач')||q.includes('куда')){
+      r=`Сейчас идёт «${EV[ch-1][mo-1]}». Наша задача на месяц: ${msn.d} (выполнено ${msn.c} из ${msn.r}).`;
+      ally='Рядовой Орлов: Мы прикроем тебя с флангов, командир!';
+    }else if(q.includes('леч')||q.includes('хп')||q.includes('аптеч')||q.includes('ранен')){
+      hp=Math.min(100,hp+45);
+      r='Санитары перевязали тебя (+45 HP)! Также жми H или собирай яблоки под деревьями весной!';
+      ally='Санитар: Держись, боец, бинты наложены!';
+    }else if(q.includes('яблок')||q.includes('дерев')||q.includes('весн')){
+      r='Весной (март-май) под цветущими яблонями падают яблоки — пробеги по ним, чтобы восстановить +50 HP!';
+    }else if(q.includes('танк')||q.includes('самолет')||q.includes('техник')){
+      r='Бей по танкам и бипланам! За уничтожение техники дают сразу +50 HP и большой сдвиг фронта!';
+      ally='Сержант Волков: Стреляй на упреждение, снаряд летит быстро!';
+    }else if(q.includes('атак')||q.includes('вперед')||q.includes('штурм')){
+      fr=Math.max(.05,Math.min(.95,fr+(pl.tm=='blue'?.08:-.08)));
+      r=`Всему полку ${inf.n} — ВЫЛЕЗАЕМ ИЗ ОКОПОВ И В ШТЫКОВУЮ АТАКУ!`;
+      ally='Рядовой Орлов: УРААА! Вперёд за ' + inf.n + '!';
+    }else if(q.includes('помощ')||q.includes('подкреп')){
+      spw();
+      r=`Свежая рота ${inf.n} высадилась в тыловой окоп и открыла огонь!`;
+    }else if(q.includes('привет')||q.includes('здрав')||q.includes('дела')){
+      r=`Здравия желаю, боец! Штаб ${inf.n} на связи. Спрашивай про тактику, окопы или управление!`;
+      ally='Рядовой Орлов: Рад сражаться плечом к плечу!';
+    }else{
+      r=`Понял тебя, боец: «${x}». Держим оборону за ${inf.n}! Помни: в окоп можно спрыгнуть, а выпрыгнуть — на Пробел.`;
+    }
+    msg(`ГЕНЕРАЛ (${inf.n})`,r,'#fe0');
+    if(ally)setTimeout(()=>msg('СОЮЗНИК',ally,'#8f8'),400);
+    bp('triangle',440,680,.1,.07);
+  },250);
+}
+
+function drF(x,c,X,Y,w,h){
+  for(let i=0;i<12;i++){
+    let sx=X+i*w/12,sy=Y+Math.sin(t*7+i*.6)*2,sw=w/12+.5;
+    let s=(a,b,d)=>{x.fillStyle=a;x.fillRect(sx,sy,sw,h/3);x.fillStyle=b;x.fillRect(sx,sy+h/3,sw,h/3);x.fillStyle=d;x.fillRect(sx,sy+2*h/3,sw,h/3)};
+    let v=(a,b,d)=>{x.fillStyle=i<4?a:i<8?b:d;x.fillRect(sx,sy,sw,h)};
+    if(c=='ru'){s('#fff','#0039a6','#d52b1e');if(i<5){x.fillStyle='#f5d130';x.fillRect(sx,sy,sw,2*h/3)}}
+    else if(c=='fr')v('#002395','#fff','#ed2939');else if(c=='it')v('#009246','#fff','#ce2b37');
+    else if(c=='rs')s('#c6363c','#0c4076','#fff');else if(c=='de')s('#111','#fff','#d00');
+    else if(c=='bg')s('#fff','#00966e','#d62612');else if(c=='ah'){s('#ed2939','#fff','#ed2939');if(i>5){x.fillStyle='#008751';x.fillRect(sx,sy+2*h/3,sw,h/3)}}
+    else if(c=='tr'){x.fillStyle='#e30a17';x.fillRect(sx,sy,sw,h)}
+    else if(c=='uk'){x.fillStyle='#012169';x.fillRect(sx,sy,sw,h);x.fillStyle='#c8102e';x.fillRect(sx,sy+h*.4,sw,h*.2);if(i>4&&i<7)x.fillRect(sx,sy,sw,h)}
+    else{x.fillStyle=i%2?'#fff':'#b22234';x.fillRect(sx,sy,sw,h);if(i<5){x.fillStyle='#3c3b6e';x.fillRect(sx,sy,sw,h*.55)}}
+  }
+}
+
+function sea(){return mo==12||mo<=2?{n:'ЗИМА',s:'#1c2838',h:'#5a6b82',g:'#dce6f2',t:'#8a99ad',w:'s'}:mo<=5?{n:'ВЕСНА',s:'#16241c',h:'#3c5947',g:'#2d4a26',t:'#3d2b1f',w:'p'}:mo<=8?{n:'ЛЕТО',s:'#18365c',h:'#4a85c4',g:'#3b6324',t:'#4d3622',w:'u'}:{n:'ОСЕНЬ',s:'#24160e',h:'#693a1e',g:'#47331e',t:'#3b2818',w:'f'}}
+function uM(){let p=Math.round((pl.tm=='blue'?fr:1-fr)*100);if(msn.tp=='f')msn.c=p;G('ms').innerText=`МИССИЯ: ${msn.d} [${msn.c}/${msn.r}]`;if(msn.c>=msn.r&&!won){won=1;G('wt').innerText=ch==5&&mo==12?'ПОБЕДА В ВОЙНЕ (60/60)!':`МЕСЯЦ ПРОЙДЕН (${(ch-1)*12+mo}/60)!`;G('win').style.display='flex'}}
+function setC(){pl.c=G('cs').value;let i=C[pl.c];pl.tm=i.s;pl.z=pl.tm=='blue'?-82:82;pl.yaw=pl.tm=='blue'?0:Math.PI;msg('ШТАБ','Страна: '+i.n,'#fe0');spw();uM()}
+function setCh(r){ch=+G('chs').value;if(r){mo=1;G('mos').value=1}let y=1913+ch,e=EV[ch-1][mo-1],s=sea();G('ct').innerText=MOS[mo-1]+' '+y+' • '+s.n;G('ev').innerText=`${y} • ${MOS[mo-1]} (${mo}/12): ${e}`;G('stN').innerText=((ch-1)*12+mo)+'/60';fr=.5;hp=100;won=dead=0;G('win').style.display=G('dead').style.display='none';pl.x=0;pl.z=pl.tm=='blue'?-82:82;pl.y=0.6;let idx=(ch-1)*12+mo-1,tp=['k','t','f','a'][idx%4];msn=tp=='k'?{tp:'k',c:0,r:6+ch*2,d:'Убить врагов'}:tp=='t'?{tp:'t',c:0,r:1,d:'Уничтожить танк/самолёт'}:tp=='f'?{tp:'f',c:50,r:75,d:'Захватить 75% фронта'}:s.w=='p'?{tp:'a',c:0,r:3,d:'Собрать 3 весенних яблока'}:{tp:'k',c:0,r:7,d:'Удержать окопы (фраги)'};uM();spw();msg('ПРИКАЗ',`${e}: ${msn.d}!`,'#fe0')}
+function nxt(){if(mo<12){mo++;G('mos').value=mo;setCh(0)}else if(ch<5){G('chs').value=ch+1;setCh(1)}else{G('chs').value=1;setCh(1)}}
+function spw(){bts=[];tks=[];pns=[];bms=[];shs=[];bxs=[];aps=[];let d=DF[df-1],bl=['ru','fr','uk','us','it','rs'],rd=['de','ah','tr','bg'];for(let i=0;i<d.n;i++){let b=i<d.n/2;bts.push({x:(Math.random()-.5)*110,z:(b?-1:1)*(22+Math.random()*65),vx:0,tm:b?'blue':'red',c:b?bl[i%6]:rd[i%4],hp:100,cd:Math.random()*2,ph:i,at:0})}for(let i=0;i<2+ch;i++)tks.push({x:(i-2)*22,z:i%2?70:-70,tm:i%2?'red':'blue',hp:300,cd:3});for(let i=0;i<3;i++)pns.push({x:(i-1)*32,y:24+i*2,z:i%2?90:-90,tm:i%2?'red':'blue',hp:120,cd:3});for(let i=0;i<(sea().w=='p'?18:10);i++)aps.push({x:(Math.random()-.5)*105,z:(Math.random()-.5)*145,a:1,h:sea().w=='p'||i%2==0})}
+function prj(x,y,z){let dx=x-pl.x,dy=y-pl.y,dz=z-pl.z,sn=Math.sin(pl.yaw),cs=Math.cos(pl.yaw),rx=dx*cs-dz*sn,rz=dx*sn+dz*cs;if(rz<.5)return null;let f=Math.min(W,H)*.85;return{x:W/2+rx/rz*f,y:H/2-dy/rz*f,z:rz}}
+function box(x,y,z,w,h,d,c1,c2,c3){let hw=w/2,hh=h/2,hd=d/2,p=[prj(x-hw,y+hh,z-hd),prj(x+hw,y+hh,z-hd),prj(x+hw,y+hh,z+hd),prj(x-hw,y+hh,z+hd),prj(x-hw,y-hh,z-hd),prj(x+hw,y-hh,z-hd),prj(x+hw,y-hh,z+hd),prj(x-hw,y-hh,z+hd)];if(p.some(v=>!v))return;let f=(a,b,c,e,cl)=>ply.push({p:[p[a],p[b],p[c],p[e]],z:(p[a].z+p[b].z+p[c].z+p[e].z)/4,c:cl});f(0,1,2,3,c1);f(4,5,1,0,c3);f(5,6,2,1,c2);f(7,4,0,3,c2);f(6,7,3,2,c3)}
+function bom(x,y,z){for(let i=0;i<8;i++)bxs.push({x,y:y+1,z,vx:(Math.random()-.5)*18,vy:4+Math.random()*12,vz:(Math.random()-.5)*18,l:.5,c:i%2?'#f80':'#fe0'});ns(.3,.3,280);bp('sawtooth',95,22,.3,.14)}
+function sht(){if(pl.rc>0)return;pl.rc=.18;ns(.15,.3,1400);bp('sawtooth',720,85,.12,.12);let sn=Math.sin(pl.yaw),cs=Math.cos(pl.yaw),d=DF[df-1];bms.push({x1:pl.x+sn*.8,y1:pl.y-.3,z1:pl.z+cs*.8,x2:pl.x+sn*85,y2:pl.y,z2:pl.z+cs*85,l:.22,c:'#fa0',im:1});bts.forEach(b=>{if(b.hp>0&&b.tm!=pl.tm&&Math.abs((b.x-pl.x)*cs-(b.z-pl.z)*sn)<1.7&&(b.x-pl.x)*sn+(b.z-pl.z)*cs>0){b.hp-=d.d;if(b.hp<=0){sc++;hp=Math.min(100,hp+25);pts=Math.min(700,pts+95);fr=Math.max(0,Math.min(1,fr+(pl.tm=='blue'?.045:-.045)));bom(b.x,0,b.z);if(msn.tp=='k')msn.c++;uM()}}});tks.forEach(k=>{if(k.hp>0&&k.tm!=pl.tm&&Math.abs((k.x-pl.x)*cs-(k.z-pl.z)*sn)<3&&(k.x-pl.x)*sn+(k.z-pl.z)*cs>0){k.hp-=d.d;if(k.hp<=0){sc+=4;hp=Math.min(100,hp+50);pts=Math.min(700,pts+250);fr=Math.max(0,Math.min(1,fr+(pl.tm=='blue'?.1:-.1)));bom(k.x,1,k.z);if(msn.tp=='t')msn.c++;uM()}}});pns.forEach(p=>{if(p.hp>0&&p.tm!=pl.tm&&Math.abs((p.x-pl.x)*cs-(p.z-pl.z)*sn)<3.8&&(p.x-pl.x)*sn+(p.z-pl.z)*cs>0){p.hp-=d.d;if(p.hp<=0){sc+=5;hp=Math.min(100,hp+50);pts=Math.min(700,pts+300);fr=Math.max(0,Math.min(1,fr+(pl.tm=='blue'?.1:-.1)));bom(p.x,p.y,p.z);if(msn.tp=='t')msn.c++;uM()}}})}
+function hit(v){if(pl.dt>0||dead||won)return;hp-=v;G('dmg').style.opacity=1;setTimeout(()=>G('dmg').style.opacity=0,100);bp('square',120,45,.15,.12);if(hp<=0){hp=0;dead=1;G('dead').style.display='flex'}}
+
+function lp(nw){
+  requestAnimationFrame(lp);let dt=Math.min(.05,(nw-ls)/1000);ls=nw;t+=dt;
+  let fx=G('fp').getContext('2d');fx.clearRect(0,0,36,20);drF(fx,pl.c,2,2,32,16);
+  if(dead||won)return;
+  if(pl.rc>0)pl.rc-=dt;if(pl.dt>0)pl.dt-=dt;if(pl.hl>0)pl.hl-=dt;
+  pl.stm=Math.min(3,pl.stm+dt*.5);pts=Math.max(0,pts-dt*12);
+
+  // Проверка попадания в глубокий окоп (земля проваливается под ногами!)
+  let d=DF[df-1],s=sea(),inTr=TR.some(z=>Math.abs(pl.z-z)<2.3);
+  pl.inTr=inTr;
+  G('trSt').style.display=(inTr&&pl.y<1.2)?'block':'none';
+
+  // Уровень пола: на поверхности = 2.4, внутри глубокого окопа = 0.55 (голова ниже уровня земли!)
+  let floorY=inTr?(pl.sl?0.2:0.55):(pl.sl?1.2:2.4);
+  if(pl.y>floorY||pl.vy){
+    pl.y+=pl.vy*dt;
+    pl.vy-=38*dt;
+    if(pl.y<=floorY){pl.y=floorY;pl.vy=0;}
+  }else{
+    // Плавное падение вниз при заходе в окоп
+    pl.y+=(floorY-pl.y)*Math.min(1,dt*14);
+  }
+
+  let sp=pl.dt>0?36:pl.sl?20:14,sn=Math.sin(pl.yaw),cs=Math.cos(pl.yaw);
+  if(K.KeyW||K.ArrowUp){pl.x+=sn*sp*dt;pl.z+=cs*sp*dt}if(K.KeyS||K.ArrowDown){pl.x-=sn*sp*dt;pl.z-=cs*sp*dt}
+  if(K.KeyA){pl.x-=cs*sp*dt;pl.z+=sn*sp*dt}if(K.KeyD){pl.x+=cs*sp*dt;pl.z-=sn*sp*dt}
+  if(K.ArrowLeft)pl.yaw-=2.3*dt;if(K.ArrowRight)pl.yaw+=2.3*dt;
+  pl.x=Math.max(-65,Math.min(65,pl.x));pl.z=Math.max(-105,Math.min(105,pl.z));
+
+  bts.forEach(b=>{
+    if(b.hp<=0){b.hp-=dt;if(b.hp<-3.5){b.hp=100;b.z=(b.tm=='blue'?-1:1)*(65+Math.random()*30)}return}
+    b.at-=dt;if(b.at<=0){b.at=1.5+Math.random()*2;b.vx=(Math.random()-.5)*7}
+    b.x=Math.max(-62,Math.min(62,b.x+b.vx*dt));if(Math.abs(b.z)>12)b.z+=(b.tm=='blue'?1:-1)*d.s*dt;
+    b.cd-=dt;if(b.cd<=0){b.cd=d.c+Math.random()*1.5;if(b.tm!=pl.tm&&Math.hypot(b.x-pl.x,b.z-pl.z)<52){bms.push({x1:b.x,y1:1.6,z1:b.z,x2:pl.x,y2:pl.y+.2,z2:pl.z,l:.14,c:'#f33',im:0});if(Math.random()<d.es*(inTr&&pl.y<1.2?.2:1))hit(d.ed)}}
+  });
+  tks.forEach(k=>{if(k.hp<=0)return;k.z+=(k.tm=='blue'?1:-1)*2.8*dt;if(Math.abs(k.z)>85)k.z=k.tm=='blue'?-75:75;k.cd-=dt;if(k.cd<=0){k.cd=4;shs.push({x:k.x,y:1.8,z:k.z,vy:0,vz:(k.tm=='blue'?1:-1)*30,tm:k.tm,l:3})}});
+  pns.forEach(p=>{if(p.hp<=0)return;p.z+=(p.tm=='blue'?1:-1)*16*dt;if(Math.abs(p.z)>110)p.z=p.tm=='blue'?-100:100;p.cd-=dt;if(p.cd<=0){p.cd=3.5;shs.push({x:p.x,y:p.y-1,z:p.z,vy:-20,vz:(p.tm=='blue'?1:-1)*10,tm:p.tm,l:2})}});
+  shs.forEach(o=>{o.y+=(o.vy||0)*dt;o.z+=(o.vz||0)*dt;o.l-=dt;if(o.y<=0){bom(o.x,0,o.z);if(Math.hypot(o.x-pl.x,o.z-pl.z)<6&&!inTr)hit(d.ed*1.2);o.l=0}else if(o.tm!=pl.tm&&Math.hypot(o.x-pl.x,o.z-pl.z)<3&&pl.y>1.2){hit(d.ed*1.3);bom(o.x,o.y,o.z);o.l=0}});
+  shs=shs.filter(o=>o.l>0);bms=bms.filter(b=>(b.l-=dt)>0);
+  bxs.forEach(b=>{b.x+=b.vx*dt;b.y+=b.vy*dt;b.z+=b.vz*dt;b.vy-=20*dt;b.l-=dt});bxs=bxs.filter(b=>b.l>0);
+  aps.forEach(a=>{if(a.a&&a.h&&Math.hypot(a.x-pl.x,a.z-pl.z)<2.8){a.a=0;hp=Math.min(100,hp+50);bp('sine',520,880,.15,.1);if(msn.tp=='a')msn.c++;uM()}});
+  if(msn.tp=='f')uM();
+
+  G('hp').innerText=hp|0;G('hl').innerText=pl.hl>0?Math.ceil(pl.hl)+'с':'OK';G('sc').innerText=sc;
+  let bpct=Math.round(fr*100);G('bp').innerText=bpct;G('rp').innerText=100-bpct;G('bf').style.width=bpct+'%';
+  G('r').innerText=['D','C','B','A','S','SS','SSS','ULTRAKILL'][Math.min(7,pts/85|0)];
+
+  ply=[];g.fillStyle=s.s;g.fillRect(0,0,W,H/2);g.fillStyle=s.h;g.fillRect(0,H*.32,W,H*.18);g.fillStyle=s.g;g.fillRect(0,H/2,W,H/2);
+
+  // Отрисовка земли с настоящими разрывами под глубокие окопы (ямины!)
+  for(let z=-100;z<=100;z+=8){
+    let isHole=TR.some(tz=>Math.abs(z-tz)<3.2);
+    if(!isHole){
+      for(let x=-60;x<=60;x+=20)if(Math.abs(x-pl.x)<85&&Math.abs(z-pl.z)<95)box(x,-.05,z,20,.1,8,s.g,s.t,s.g);
+    }
+  }
+  // Глубокие траншеи: деревянный пол на глубине -1.6 и земляные стенки по бокам
+  TR.forEach(tz=>{
+    if(Math.abs(tz-pl.z)<95){
+      box(0,-1.65,tz,130,.1,4.8,'#1a110b','#110b07','#1a110b');
+      box(0,-.8,tz-2.45,130,1.6,.2,'#3d2b1f','#2b1e14','#24180f');
+      box(0,-.8,tz+2.45,130,1.6,.2,'#3d2b1f','#2b1e14','#24180f');
+      // Низкий земляной бруствер на уровне земли (без заборов!)
+      box(0,.12,tz-2.7,130,.24,.6,s.t,'#2b1e14','#3d2b1f');
+      box(0,.12,tz+2.7,130,.24,.6,s.t,'#2b1e14','#3d2b1f');
+    }
+  });
+
+  aps.forEach(a=>{box(a.x,2.5,a.z-2,.7,5,.7,'#5c3a21','#422816','#4f311b');let lc=s.w=='s'?'#eef':s.w=='p'?'#f8b8d0':'#2e8b2e';box(a.x,5.2,a.z-2,3.6,2.4,3.6,lc,'#1f631f',lc);if(a.a&&a.h)box(a.x,.55+Math.sin(t*4)*.12,a.z,.75,.75,.75,'#f22','#b00','#d11')});
+  bts.forEach(b=>{if(b.hp<=0)return;let inf=C[b.c],sw=Math.sin(t*10+b.ph)*.38;box(b.x-.25,.5,b.z+sw,.38,1,.38,'#222','#111','#222');box(b.x+.25,.5,b.z-sw,.38,1,.38,'#222','#111','#222');box(b.x,1.5,b.z,.95,1.1,.5,inf.u,'#333',inf.u);box(b.x,2.35,b.z,.65,.65,.65,'#fdb','#e9b','#fca');box(b.x,2.72,b.z,.8,.28,.8,b.tm=='blue'?'#26c':'#d22','#333','#333')});
+  tks.forEach(k=>{if(k.hp>0){box(k.x,.9,k.z,3.8,1.3,5.6,k.tm=='blue'?'#4a607a':'#5e6358','#222','#333');box(k.x,1.9,k.z,2.1,.8,2.4,k.tm=='blue'?'#28f':'#f33','#222','#333')}});
+  pns.forEach(p=>{if(p.hp>0){box(p.x,p.y,p.z,1.1,1,4.8,p.tm=='blue'?'#3b7dd8':'#d83b3b','#222','#333');box(p.x,p.y+.7,p.z+.4,7.5,.18,1.3,'#ddd','#aaa','#ccc')}});
+  shs.forEach(o=>box(o.x,o.y,o.z,.45,.45,1.2,'#fe0','#f80','#ff0'));
+  bxs.forEach(b=>box(b.x,b.y,b.z,b.l*2.5,b.l*2.5,b.l*2.5,b.c,'#f30','#fa0'));
+  ply.sort((a,b)=>b.z-a.z);ply.forEach(p=>{g.fillStyle=p.c;g.beginPath();p.p.forEach((pt,i)=>i?g.lineTo(pt.x,pt.y):g.moveTo(pt.x,pt.y));g.closePath();g.fill()});
+  if(s.w=='s'||s.w=='p'){g.fillStyle=s.w=='s'?'#fff':'#fbc';for(let i=0;i<40;i++)g.fillRect((i*73+t*50)%W,(i*41+t*60)%H,3,3)}
+
+  let bIm=sp.get('beam');
+  bms.forEach(b=>{let p1=prj(b.x1,b.y1,b.z1),p2=prj(b.x2,b.y2,b.z2);if(p1&&p2){if(b.im&&bIm){let dx=p2.x-p1.x,dy=p2.y-p1.y,ln=Math.hypot(dx,dy),ag=Math.atan2(dy,dx)+Math.PI/2;g.save();g.translate(p1.x,p1.y);g.rotate(ag);g.drawImage(bIm,-8,-ln,16,ln);g.restore()}else{g.strokeStyle=b.c;g.lineWidth=3;g.beginPath();g.moveTo(p1.x,p1.y);g.lineTo(p2.x,p2.y);g.stroke()}}});
+  let kc=pl.rc*45,rIm=sp.get('rifle');
+  if(rIm)g.drawImage(rIm,W*.62,H*.50+kc,W*.09,H*.52);
+  else{let gx=W*.62,gy=H*.56+kc;g.fillStyle='#5c3317';g.fillRect(gx,gy+H*.12,W*.12,H*.34);g.fillStyle='#444';g.fillRect(gx+W*.03,gy-H*.06,W*.04,H*.22)}
+  if(pl.rc>.14){g.fillStyle='#fe0';g.beginPath();g.arc(W*.665,H*.50+kc,14,0,7);g.fill()}
+}
+setC();setCh(1);requestAnimationFrame(lp);
+</script>
+</body>
+</html>
